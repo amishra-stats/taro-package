@@ -2,9 +2,12 @@
 
 # TARO: Tree aggregated factor regression model for microbiome data analysis
 
-The abundance profiles observed in microbiome samples are compositional because of several technical limitations in 16S rRNA/metagenomics sequencing. The R package `TARO` uses Earth Movers Distance (EMD) to compare the microbiome compositions of any two states. 
 
-Using this package, we have assessed the extent of microbiome colonization in a fecal microbiome transplant experiment. The underlying structure of microbiome transfer in an FMT experiment are illustrated in the Figure below:
+We propose a Tree-Aggregated factor Regression mOdel (TARO) for integrating microbiome data with other high-dimensional data types, such as metabolomics. Technical limitations prevent us from obtaining the absolute count of the microbial species; hence the microbial-abundance profile of a sample is inherently compositional. In addition, microbial species are related by phylogeny. TARO treats the microbial abundance data as compositional data and suitably encodes the dependency among the ASV/OTUs through a phylogeny-inspired adjacency matrix.
+
+The adjacency matrix allows us to consider leaf and node in the phylogenetic tree as predictors in the model and learn their association with the multivariate response in terms of a low-rank and sparse coefficient matrix. The required regularized structure of the coefficient matrix allows us to identify multiple latent factors (each represented as a subset of predictors) associated with only a subset of responses. 
+
+We demonstrate through simulation studies that TARO can accurately recover the low-rank coefficient matrix and identify relevant features. 
 
 ![alt text](https://github.com/amishra-stats/taro-package/blob/main/misc/schema_taro.jpg)
 
@@ -16,15 +19,12 @@ The `taro` package is currently available on GitHub and can be installed as foll
 
 ```
 # Install packages
-devtools::install_github('mda-primetr/mtracx/mtracx', force = TRUE)
+devtools::install_github('amishra-stats/taro-package/taro', force = TRUE)
 # load library
-library(mtracx)
+library(taro)
 ```
 
-We have inplmented the procedure in the function *mtracx_phyloseq* that operates on *phyloseq object* (storing microbial abundandance profiles of all relevant samples) and  *experiment_file* (a data frame providing details of the FMT experiment). We have provided an example of the experimental file in the figure below: 
-
-![alt text](https://github.com/mda-primetr/mtracx/raw/main/misc/figure/experiment_file.png)
-
+We have implemented the procedure in the function *taro_path* that primarily requires a multivariate response matrix, log-transformed microbial abundance matrix as predictors and a phylogeny inspired adjacency matrix.
 
 ## Working examples
 
