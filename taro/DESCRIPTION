@@ -1,0 +1,18 @@
+Package: taro
+Type: Package
+Title: Tree Aggregated Factor Regression Model
+Version: 0.1.0
+Date: 2023-04-10
+Author: Aditya Mishra [aut, cre], Christine Peterson [aut, cre]
+Maintainer: Aditya Mishra <akmishra@mdanderson.org>
+Description: A multivariate model for learning the association between continuous multiple outcomes and high-dimensional predictors that are related by a phylogenetic or taxonomic tree.
+Depends: R (>= 3.5.0),stats, utils 
+Imports: Rcpp (>= 0.12.9), dplyr, magrittr, ape, far, igraph, phyloseq, Matrix, SparseDOSSA2
+biocViews: SparseDOSSA2
+License: GPL (>= 3.0)
+LazyData: TRUE
+LinkingTo: Rcpp, RcppArmadillo, RcppParallel
+NeedsCompilation: yes
+RoxygenNote: 7.2.3
+Repository: CRAN
+Encoding: UTF-8
