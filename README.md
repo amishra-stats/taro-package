@@ -6,7 +6,7 @@ The abundance profiles observed in microbiome samples are compositional because 
 
 Using this package, we have assessed the extent of microbiome colonization in a fecal microbiome transplant experiment. The underlying structure of microbiome transfer in an FMT experiment are illustrated in the Figure below:
 
-![alt text](https://github.com/mda-primetr/mtracx/raw/main/misc/schema_taro.jpg)
+![alt text](https://github.com/amishra-stats/taro-package/blob/main/misc/schema_taro.jpg)
 
 
 
