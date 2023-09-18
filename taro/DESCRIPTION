@@ -4,7 +4,7 @@ Title: Tree Aggregated Factor Regression Model
 Version: 0.1.0
 Date: 2023-04-10
 Author: Aditya Mishra [aut, cre], Christine Peterson [aut, cre]
-Maintainer: Aditya Mishra <akmishra@mdanderson.org>
+Maintainer: Aditya Mishra <aditya.mishra@uga.edu>
 Description: A multivariate model for learning the association between continuous multiple outcomes and high-dimensional predictors that are related by a phylogenetic or taxonomic tree.
 Depends: R (>= 3.5.0),stats, utils 
 DependsNote: BioC (>= 3.2)
