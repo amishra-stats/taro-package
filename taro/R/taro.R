@@ -1,6 +1,7 @@
 utils::globalVariables(".")
 utils::globalVariables("sample_taxa_table")
 # devtools::check(remote = TRUE, manual = TRUE)
+# devtools::document()
 
 
 #'Simulation model
@@ -13,11 +14,18 @@ utils::globalVariables("sample_taxa_table")
 #' @param intercept intercept of the true multivariate model
 #' @param snr signal to noise ratio
 #' @param rho parameter defining correlated error
-#' @param taxa_table inpur taxa table for the simulated microbiome data
+#' @param taxa_table input taxa table for the simulated microbiome data
+#' @param setting choice of the effect size of the coefficient along the nodes of the tree.
+#' @param sparsity desired percentage of the non-zero entries
+#' Setting 1: primarily selects rare genera to have significant effect;
+#' Setting 2: primarily selects most abundant genera to have significant effect
+#' Setting 3: primarily selects leaf nodes to have significant effect
+#' Setting 4: primarily selects nodes in the phylogentic tree to have significant effect
 #' @return return(list(X=X, Y =Y, A = A, U = U, D=D, V=V, C0 = C0))
 #'   \item{Y}{Generated response matrix}
 #'   \item{X}{Generated predictor matrix}
 #'   \item{A}{Taxonomy inspired adjacency matrix}
+#'   \item{tree}{Pass reference phylogenetic tree for visualization}
 #'   \item{U}{Left singular vectors of the low-rank coefficient matrix}
 #'   \item{V}{Right singular vectors of the low-rank coefficient matrix}
 #'   \item{D}{Singular values of the low-rank coefficient matrix}
@@ -25,22 +33,31 @@ utils::globalVariables("sample_taxa_table")
 #' @export
 #' @importFrom magrittr %>%
 #' @importFrom magrittr %<>%
-#' @importFrom stats rnorm
+#' @importFrom stats rnorm sd
+#' @importFrom stats sd
+#' @import BiocManager
 #' @examples
 #' #require(taro)
 #'
 #' # Simulate data from a sparse factor regression model
 #' snr <- .25; xrho <- 0.5; nrank <- 3; q <- 50; n = 300; intercept = 0.5
-#' rho = 0.5 # error correlation
-#'
+#' rho = 0.5; sparsity = 0.05; setting = 2;  # error correlation
+#' \donttest{
 #' sim.sample <- taro_sim(n, q, nrank, rho, snr, intercept,
-#'                         taxa_table = NULL)
+#'                         taxa_table = NULL, setting, sparsity)
 #' Y <- sim.sample$Y
 #' X <- sim.sample$X
+#' }
 #' @references
 #' Mishra et al. (2023) \emph{Tree aggregated factor regression model}
 taro_sim  = function (n = 300, q = 50, nrank = 3, rho = 0.5,
-                      snr = 0.25, intercept = 0.5, taxa_table = NULL){
+                      snr = 0.25, intercept = 0.5, taxa_table = NULL,
+                      setting = 1, sparsity = 0.05){
+
+  ## test for multiple settings
+  # library(taro)
+  # snr <- .25; xrho <- 0.5; nrank <- 3; q <- 50; n = 300; intercept = 0.5
+  # rho = 0.5;taxa_table = NULL # error correlation
   X2 = X3 = X1 = NULL;
   if (is.null(taxa_table)) {
     # load('taro/data/sample_taxa_table.rda') #
@@ -66,9 +83,11 @@ taro_sim  = function (n = 300, q = 50, nrank = 3, rho = 0.5,
     paste('~',.,sep = '')
   phy <- tax_table_to_phylo(eval(parse(text = formula_str)),
                             data = df, collapse = F)
+  phy$node.label <- gsub("'",'',phy$node.label)
+
   A <- phylo_to_A(phy) %>% as.matrix()
   # all(phy$tip.label == rownames(A))
-  colnames(A) <- gsub("'",'',colnames(A))
+  # colnames(A) <- gsub("'",'',colnames(A))
   ## Find columns to drop
   drop_col <- c()
   for (i in 3:(ncol(df)-1)) {
@@ -95,19 +114,88 @@ taro_sim  = function (n = 300, q = 50, nrank = 3, rho = 0.5,
   }
   ref_table <- cbind(colSums(A !=0), 1/as.numeric(apply(Xt, 2, stats::sd)^2),
                      colnames(A)) %>% data.frame() %>% dplyr::arrange(X1,X2)
+  if(setting == 2){
+    ref_table <- cbind(colSums(A !=0), as.numeric(apply(Xt, 2, sd)^2), colnames(A)) %>%
+      data.frame() %>% dplyr::arrange(X1,X2)
+  }
   for (i in 1:nrank) {
-    ssize <- round(p*0.05)
+    ssize <- round(p*sparsity)
     if (ssize%%2 > 0) ssize <- ssize + 1
     M <- cbind(colSums(A),0)
     col_sel <- c(); col_rm <- c()
+
+    if(setting  <= 2){
+      ## Setting 1: rare nodes are favoured
+      ## Setting 2: most abundant nodes are favoured
+      temp <- dplyr::filter(ref_table, X1 == 4)
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, 1, replace = FALSE, prob = probv/sum(probv)  )
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector()
+      col_sel <- c(col_sel,tem)
+
+      temp <- dplyr::filter(ref_table, X1 == 3)
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, 1, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+
+      temp <- dplyr::filter(ref_table, X1 == 2)
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, 3, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+
+      temp <- dplyr::filter(ref_table, X1 == 1) %>% dplyr::filter(!(X3 %in% col_rm) )
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, ssize - 5, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+    }
     #
-    temp <- dplyr::filter(ref_table, X1 == 1) %>%
-      dplyr::filter(!(X3 %in% col_rm) )
-    probv <- as.numeric(temp$X2)
-    tem <- sample(temp$X3, ssize, replace = FALSE, prob = probv/sum(probv))
-    col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
-      unlist() %>% as.vector() %>% c(.,col_rm)
-    col_sel <- c(col_sel,tem)
+    if(setting == 3){
+      # Only leaf nodes are selected to have significant effect on the outcome
+      temp <- dplyr::filter(ref_table, X1 == 1) %>%
+        dplyr::filter(!(X3 %in% col_rm) )
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, ssize, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+    }
+    if(setting == 4){
+      # Higher level taxa are favoured to have a significant effect
+      temp <- dplyr::filter(ref_table, X1 == 4)
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, 4, replace = FALSE, prob = probv/sum(probv)  )
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector()
+      col_sel <- c(col_sel,tem)
+
+      temp <- dplyr::filter(ref_table, X1 == 3)
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, 2, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+
+      temp <- dplyr::filter(ref_table, X1 == 2)
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, 10, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+
+      temp <- dplyr::filter(ref_table, X1 == 1) %>% dplyr:: filter(!(X3 %in% col_rm) )
+      probv <- as.numeric(temp$X2)
+      tem <- sample(temp$X3, ssize - 16, replace = FALSE, prob = probv/sum(probv))
+      col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+        unlist() %>% as.vector() %>% c(.,col_rm)
+      col_sel <- c(col_sel,tem)
+    }
     #
     M[col_sel,2] <- c(rep(1,ssize/2), rep(-1,ssize/2)) #nrandx(ssize)
     M[M[,2]!=0,2] <- far::orthonormalization(M[M[,2]!=0,], basis=F, norm=F)[,2]
@@ -124,7 +212,7 @@ taro_sim  = function (n = 300, q = 50, nrank = 3, rho = 0.5,
   sim.sample <- simulate_data_mbiome(X,A, U, D, V, n, C0, snr, rho)
   Y <- sim.sample$Y;
   X <- sim.sample$X
-  return(list(X=X, Y =Y, A = A, U = U, D=D, V=V, C0 = C0))
+  return(list(X=X, Y =Y, A = A, tree = phy, U = U, D=D, V=V, C0 = C0))
 }
 
 
@@ -191,6 +279,7 @@ taro_control = function(mu=1.0, nu=1.1,
 #' @param Bc vector (RHS) for imposing the linearity constraint on the parameters
 #' of the coefficient matrix
 #' @param Z control variables
+#' @param phylo reference phylogenetic tree
 #' @param maxrank an integer specifying the maximum desired rank/number of factors
 #' @param nlambda maximum number of lambda values used for generating the solution path
 #' @param orthV if TRUE, orthogonality of the left singular vector is imposed or not
@@ -210,20 +299,24 @@ taro_control = function(mu=1.0, nu=1.1,
 #' @export
 #' @import magrittr
 #' @importFrom  Rcpp evalCpp
+#' @importFrom igraph set_vertex_attr
+#' @importFrom ape as.phylo
 #' @useDynLib taro
 #' @examples
 #' require(taro)
+#' set.seed(123)
 #'
 #' #' # Simulate data from a sparse factor regression model
 #' snr <- .25; xrho <- 0.5; nrank <- 3; q <- 50; n = 300; intercept = 0.5
 #' rho = 0.5 # error correlation
-#'
+#' \donttest{
 #' input_data <- taro_sim(n, q, nrank, rho, snr, intercept,
 #'                         taxa_table = NULL)
 #'
 #' Y <- input_data$Y
 #' X <- input_data$X
 #' A <- input_data$A
+#' phylo <- input_data$tree
 #' n <- nrow(Y); q <- ncol(Y)
 #' set.seed(123)
 #' # Implementation setting
@@ -239,15 +332,15 @@ taro_control = function(mu=1.0, nu=1.1,
 #'                        outMaxIter = 1000,outTol = 1e-8,
 #'                        spV=0.5, lamMaxFac = 1e2, se1 = 1)
 #' # Weight Yes
-#' # fit_seq <- taro_path(Y, X, A, Ac, Bc, Z = NULL,
+#' # fit_seq <- taro_path(Y, X, A, Ac, Bc, Z = NULL, phylo = phylo,
 #' #                       maxrank = 5, nlambda = 100,
 #' #                       control = control,
 #' #                       nfold = 5, orthV = TRUE,
 #' #                       verbose = TRUE)
-#'
+#' }
 #'@references
 #' Mishra et al. (2023) \emph{Tree aggregated factor regression model}
-taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
+taro_path <- function(Y, X, A, Ac, Bc, Z = NULL, phylo = NULL,
                        maxrank = 10, nlambda = 40,
                        control = list(),
                        nfold = 5, orthV = TRUE,
@@ -258,6 +351,7 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
   q <- ncol(Y)
   if (ncol(Ac) != p) stop('incorrect dimension of Ac')
   if (nrow(Bc) != nrow(Ac)) stop('incorrect dimension of linear constraint')
+  taxTree <- A_to_igraph(A)
 
   if (is.null(Z)) {
     cIndex <- 1
@@ -346,7 +440,7 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
                                          control$se1 * sderr[l.mean])))
     }
     lamS <- fitT[[ifold]]$lamseq[l.mean]
-    save(list = ls(), file = 'Aditya.rda')
+    # save(list = ls(), file = 'Aditya.rda')
     fit.nlayer[[k]] <- fit.layer <- taro_cpp_ur(Yini,X0,Ac,Bc, nlambda, cIndex,
                                                 initW, Dini = xx_in$d, Zini = Z0,
                                                 Uini = xx_in$u, Vini = xx_in$v,
@@ -384,8 +478,15 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
   if (sum(D != 0) == maxrank) {
     message("Increase maxrank value!")
   }
+  # taxTree <- A_to_igraph(A)
+  # all(igraph::V(taxTree)$name == c(colnames(A), 'Root'))
+  # for (i in 1:ncol(U))
+  #   taxTree %<>% igraph::set_vertex_attr(sprintf("u%s",i),
+  #                                        value = c(U[,i],0) )
+
+  if (is.null(phylo)) phylo <- ape::as.phylo(A_to_igraph(A))
   ft1 <- list(fit = fit.nlayer, C = U %*% (D * t(V)), Z = Z,
-              U = U, V = V, D = D, lam = lamSel)
+              U = U, V = V, D = D, lam = lamSel,tree = phylo)
   return(ft1)
 }
 
@@ -411,6 +512,7 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
 #' @param Bc vector (RHS) for imposing the linearity constraint on the parameters
 #' of the coefficient matrix
 #' @param Z control variables
+#' @param phylo reference phylogenetic tree
 #' @param maxrank an integer specifying the maximum desired rank/number of factors
 #' @param nfold number of folds for the k-fold cross validation for selecting the tuning parameter
 #' @param verbose if TRUE, prints the message implementing the sequential procedure
@@ -433,13 +535,14 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
 #' # Simulate data from a sparse factor regression model
 #' snr <- .25; xrho <- 0.5; nrank <- 3; q <- 50; n = 300; intercept = 0.5
 #' rho = 0.5 # error correlation
-#'
+#' \donttest{
 #' input_data <- taro_sim(n, q, nrank, rho, snr, intercept,
 #'                         taxa_table = NULL)
 #'
 #' Y <- input_data$Y
 #' X <- input_data$X
 #' A <- input_data$A
+#' phylo <- input_data$phylo
 #' n <- nrow(Y); q <- ncol(Y)
 #' set.seed(123)
 #' # Implementation setting
@@ -456,11 +559,11 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL,
 #'
 #' # test_srrr <- rrr_lc(Y, X, A, Ac, Bc, Z = NULL, maxrank = 5,
 #' # control, nfold = 5)
-#'
+#' }
 #' @references
 #' Mishra et al. (2023) \emph{Tree aggregated factor regression model}
-rrr_lc = function(Y, X, A, Ac, Bc, Z = NULL, maxrank = 10,
-                  control = list(),
+rrr_lc = function(Y, X, A, Ac, Bc, Z = NULL, phylo = NULL,
+                  maxrank = 10, control = list(),
                   nfold = 5, verbose = TRUE) {
   rrr_lc_miss = function(Yr, Xr, k, cIndex,
                          Ac, Bc,
@@ -548,6 +651,8 @@ rrr_lc = function(Y, X, A, Ac, Bc, Z = NULL, maxrank = 10,
   dev.mean <- colMeans(cbind(dev0,dev), na.rm = T)
   rank_sel <- which.min(dev.mean)-1
 
+  if (is.null(phylo)) phylo <- ape::as.phylo(A_to_igraph(A))
+
   # compute model estimate for the selected rank
   Y[is.na(Y)] <- 0
   if (rank_sel > 0){
@@ -567,10 +672,102 @@ rrr_lc = function(Y, X, A, Ac, Bc, Z = NULL, maxrank = 10,
     out = list(C = C, diffobj =NA, converged = NA, ExecTimekpath = NA,
                maxit = NA, converge = NA, Z = Z0, D = 0,
                U = matrix(rep(0,ncol(X0) -length(cIndex))),
-               V = matrix(rep(0,q)), Y = Y, X =X)
+               V = matrix(rep(0,q)), Y = Y, X = X, tree = phylo)
   }
   return(out)
 }
 
 
+
+
+
+
+#
+# taro_sim  = function (n = 300, q = 50, nrank = 3, rho = 0.5,
+#                       snr = 0.25, intercept = 0.5, taxa_table = NULL){
+#   X2 = X3 = X1 = NULL;
+#   if (is.null(taxa_table)) {
+#     # load('taro/data/sample_taxa_table.rda') #
+#     # utils::data('sample_taxa_table')
+#     taxa_table <- sample_taxa_table
+#     nf <- nrow(taxa_table)
+#   } else {nf <- nrow(taxa_table)}
+#
+#   # Process the data
+#   Stool_simulation <- SparseDOSSA2::SparseDOSSA2(template = "Stool",
+#                                                  n_sample = n,
+#                                                  n_feature = nf,
+#                                                  verbose = F)
+#   otuTab <- Stool_simulation$simulated_data
+#   rownames(otuTab) <- rownames(taxa_table)
+#   physeq <- phyloseq::phyloseq( phyloseq::otu_table(otuTab, taxa_are_rows = T),
+#                                 phyloseq::tax_table(as.matrix(taxa_table)) )
+#   physeq <- phyloseq::subset_taxa(physeq,
+#                                   rowSums(phyloseq::otu_table(physeq) > 0) > 2 )
+#   df <- phyloseq::tax_table(physeq) %>% data.frame() %>%
+#     lapply(factor) %>% as.data.frame()
+#   formula_str <- paste(setdiff(colnames(df),'unique'),collapse = '/') %>%
+#     paste('~',.,sep = '')
+#   phy <- tax_table_to_phylo(eval(parse(text = formula_str)),
+#                             data = df, collapse = F)
+#   A <- phylo_to_A(phy) %>% as.matrix()
+#   # all(phy$tip.label == rownames(A))
+#   colnames(A) <- gsub("'",'',colnames(A))
+#   ## Find columns to drop
+#   drop_col <- c()
+#   for (i in 3:(ncol(df)-1)) {
+#     temp <- table(df[,c(i-1,i)])
+#     temp <- rowSums(temp>0) # rowSums(temp)
+#     drop_col %<>% c(names(temp[temp<2]))
+#   }
+#   # dim(A)
+#   temp <- crossprod(as.matrix(A))
+#   A <- A[,!(colnames(A) %in% drop_col)]
+#   X <- phyloseq::otu_table(physeq) %>% t()
+#   X <- log(X + (X==0))
+#   tind <- colSums(X) !=0
+#   X <- X[,tind]; A <- A[tind,]
+#   A <- A[,colSums(A)>0]
+#   A <- apply(A, 1, function(x) x/colSums(A)) %>% t()
+#   Xt <- X %*% A
+#   # Simulate data from a sparse factor regression model
+#   p <- ncol(Xt); n <- nrow(Xt)
+#   U <- matrix(0,ncol=nrank ,nrow=p);  V <- matrix(0,ncol=nrank ,nrow=q)
+#   nrandx = function(n){
+#     c(stats::runif(round(n/2), min = 0.8, max = 1),
+#       stats::runif(n-round(n/2), min = -1, max = -0.8))
+#   }
+#   ref_table <- cbind(colSums(A !=0), 1/as.numeric(apply(Xt, 2, stats::sd)^2),
+#                      colnames(A)) %>% data.frame() %>% dplyr::arrange(X1,X2)
+#   for (i in 1:nrank) {
+#     ssize <- round(p*0.05)
+#     if (ssize%%2 > 0) ssize <- ssize + 1
+#     M <- cbind(colSums(A),0)
+#     col_sel <- c(); col_rm <- c()
+#     #
+#     temp <- dplyr::filter(ref_table, X1 == 1) %>%
+#       dplyr::filter(!(X3 %in% col_rm) )
+#     probv <- as.numeric(temp$X2)
+#     tem <- sample(temp$X3, ssize, replace = FALSE, prob = probv/sum(probv))
+#     col_rm <- apply(A[,tem, drop=F],2, function(x) colnames(A)[x != 0]) %>%
+#       unlist() %>% as.vector() %>% c(.,col_rm)
+#     col_sel <- c(col_sel,tem)
+#     #
+#     M[col_sel,2] <- c(rep(1,ssize/2), rep(-1,ssize/2)) #nrandx(ssize)
+#     M[M[,2]!=0,2] <- far::orthonormalization(M[M[,2]!=0,], basis=F, norm=F)[,2]
+#     U[,i] <- M[,2]
+#     V[5*i + (1:5),i] <- nrandx(q*0.1) # small example, not very sparse
+#   }
+#   # U <- far::orthonormalization(cbind(colSums(A),U), basis=F, norm=F)[,2:4]
+#   U <- apply(U,2,function(x)x/sqrt(sum(x^2)))
+#   V <- apply(V,2,function(x)x/sqrt(sum(x^2)))
+#   D <- diag(c(20,15,10))/2
+#   C <- U%*%D%*%t(V)
+#   C0 <- matrix(intercept, nrow = 1, ncol = q)
+#   # Xsigma <- xrho^abs(outer(1:p, 1:p,FUN="-"))
+#   sim.sample <- simulate_data_mbiome(X,A, U, D, V, n, C0, snr, rho)
+#   Y <- sim.sample$Y;
+#   X <- sim.sample$X
+#   return(list(X=X, Y =Y, A = A, U = U, D=D, V=V, C0 = C0))
+# }
 

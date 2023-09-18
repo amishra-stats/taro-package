@@ -117,3 +117,29 @@ simulate_data_mbiome  = function (X,A, U, D, V, n, C0, snr, rho = 0.5) {
 }
 
 
+
+
+
+
+#' Convert adjacency matrix to taxonomy tree
+#'
+#' @param A phylogeny inspired adjacency matrix
+#' @importFrom igraph make_empty_graph V add_edges
+#' @export
+A_to_igraph <- function(A) {
+  A_ <- cbind((A!=0)+0,Root = 1)
+  g <- igraph::make_empty_graph(n = ncol(A_), directed = T)
+  igraph::V(g)$name <- colnames(A_)
+  nleaves <- nrow(A_)
+  num_nodes <- length(igraph::V(g))
+  edge_list <- NULL
+  for (i in 1:nleaves) { # i = 25
+    edge_var <- colnames(A_)[A_[i,] == 1]
+    for (j in length(edge_var):2)
+      g %<>% igraph::add_edges(c(edge_var[j],edge_var[j-1]))
+  }
+  all(igraph::V(g)$name == colnames(A_)) # sanity check
+  return(g)
+}
+
+
