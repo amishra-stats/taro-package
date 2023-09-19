@@ -17,7 +17,6 @@ taro_path(
   Ac,
   Bc,
   Z = NULL,
-  phylo = NULL,
   maxrank = 10,
   nlambda = 40,
   control = list(),
@@ -40,8 +39,6 @@ of the coefficient matrix}
 of the coefficient matrix}
 
 \item{Z}{control variables}
-
-\item{phylo}{reference phylogenetic tree}
 
 \item{maxrank}{an integer specifying the maximum desired rank/number of factors}
 

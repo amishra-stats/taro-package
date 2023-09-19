@@ -28,10 +28,17 @@ We have implemented the procedure in the function *taro_path* that primarily req
 
 ## Working examples
 
-This is a basic example which shows you how to solve a common problem:
+This is a basic example which shows you how to solve a common problem. The code below relies on SparseDOSSA2 to create the simulated data. SparseDOSSA2 can be installed as follows:
+
+``` r
+devtools::install_github("biobakery/SparseDOSSA2")
+```
+
+Once SparseDOSSA2 is installed, the following example code can be run to simulate the data and fit the TARO model:
 
 ``` r
 library(taro)
+library(SparseDOSSA2)
 # Setting parameters for simulating the data
 snr <- .25; xrho <- 0.5; nrank <- 3; 
 q <- 50; n = 300; intercept = 0.5
@@ -65,8 +72,44 @@ fit_seq <- taro_path(Y, X, A, Ac, Bc, Z = Z,
                       control = control,
                       nfold = nfold, orthV = TRUE,
                       verbose = TRUE)
+                    
 
 ```
+
+We plot the model output using the parameters estimate. The loading matrix estimate of ***V*** and the left-singular vector components for constructing the latent factors  ***AU*** are presented below, respectively. 
+
+``` r
+library(magrittr)
+library(tibble)
+library(ComplexHeatmap)
+df_plot <- fit_seq$V %>% data.frame() %>%
+  dplyr::mutate(NodeID = 1:ncol(Y)) %>% .[rowSums(.[,1:3])!=0,] %>% 
+  tibble::remove_rownames() %>% tibble::column_to_rownames('NodeID')
+jpeg('../misc/sup_comp_loadings.jpg', width = 800, height = 300)
+ht <- Heatmap(t(as.matrix(df_plot)), show_row_dend = F, show_column_dend = F,
+              cluster_rows = F, cluster_columns = F,
+              heatmap_legend_param = list(title = 'Loading Matrix\nComposition'))
+draw(ht, heatmap_legend_side = "left",annotation_legend_side="right")
+dev.off()
+
+
+df_plot <- A %*% fit_seq$U %>% data.frame() %>%
+  .[rowSums(.[,1:3])!=0,] 
+jpeg('../misc/sup_comp_latent_fac.jpg', width = 1000, height = 300)
+ht <- Heatmap(t(as.matrix(df_plot)), show_row_dend = F, show_column_dend = F,
+              cluster_rows = F, cluster_columns = F,
+              heatmap_legend_param = list(title = 'Latent Factor\nMatrix'))
+draw(ht, heatmap_legend_side = "left",annotation_legend_side="right")
+dev.off()
+```
+
+![alt text](https://github.com/amishra-stats/taro-package/blob/main/misc/sup_comp_latent_fac.jpg)
+
+![alt text](https://github.com/amishra-stats/taro-package/blob/main/misc/sup_comp_loadings.jpg)
+
+
+
+
 
 Community Guidelines
 --------------------

@@ -261,7 +261,8 @@ taro_control = function(mu=1.0, nu=1.1,
 }
 
 
-
+# @param phylo reference phylogenetic tree
+# @importFrom ape as.phylo
 
 #' Tree aggregated factor regression model (TARO)
 #'
@@ -279,7 +280,6 @@ taro_control = function(mu=1.0, nu=1.1,
 #' @param Bc vector (RHS) for imposing the linearity constraint on the parameters
 #' of the coefficient matrix
 #' @param Z control variables
-#' @param phylo reference phylogenetic tree
 #' @param maxrank an integer specifying the maximum desired rank/number of factors
 #' @param nlambda maximum number of lambda values used for generating the solution path
 #' @param orthV if TRUE, orthogonality of the left singular vector is imposed or not
@@ -300,7 +300,7 @@ taro_control = function(mu=1.0, nu=1.1,
 #' @import magrittr
 #' @importFrom  Rcpp evalCpp
 #' @importFrom igraph set_vertex_attr
-#' @importFrom ape as.phylo
+
 #' @useDynLib taro
 #' @examples
 #' require(taro)
@@ -340,7 +340,7 @@ taro_control = function(mu=1.0, nu=1.1,
 #' }
 #'@references
 #' Mishra et al. (2023) \emph{Tree aggregated factor regression model}
-taro_path <- function(Y, X, A, Ac, Bc, Z = NULL, phylo = NULL,
+taro_path <- function(Y, X, A, Ac, Bc, Z = NULL, #phylo = NULL,
                        maxrank = 10, nlambda = 40,
                        control = list(),
                        nfold = 5, orthV = TRUE,
@@ -484,9 +484,10 @@ taro_path <- function(Y, X, A, Ac, Bc, Z = NULL, phylo = NULL,
   #   taxTree %<>% igraph::set_vertex_attr(sprintf("u%s",i),
   #                                        value = c(U[,i],0) )
 
-  if (is.null(phylo)) phylo <- ape::as.phylo(A_to_igraph(A))
+  # if (is.null(phylo)) phylo <- ape::as.phylo(A_to_igraph(A))
   ft1 <- list(fit = fit.nlayer, C = U %*% (D * t(V)), Z = Z,
-              U = U, V = V, D = D, lam = lamSel,tree = phylo)
+              U = U, V = V, D = D, lam = lamSel)
+  # ,tree = phylo
   return(ft1)
 }
 
