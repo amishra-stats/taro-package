@@ -12,7 +12,6 @@ We demonstrate through simulation studies that TARO can accurately recover the l
 ![alt text](https://github.com/amishra-stats/taro-package/blob/main/misc/schema_taro.jpg)
 
 
-
 Getting started  
 --------------
 The `taro` package is currently available on GitHub and can be installed as follows.
@@ -107,6 +106,10 @@ dev.off()
 
 ![alt text](https://github.com/amishra-stats/taro-package/blob/main/misc/sup_comp_loadings.jpg)
 
+
+---
+## Simulation and  Application 
+The **TARO** study simulation and application can be executed by the user, utilizing the designated directories named **simulation_taro** and **application_taro** as their primary working locations. Users are encouraged to utilize provided code snippets to initiate **TARO** runs on an HPC cluster.
 
 
 
