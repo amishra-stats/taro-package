@@ -97,7 +97,7 @@ df_plot <- A %*% fit_seq$U %>% data.frame() %>%
   .[rowSums(.[,1:3])!=0,] 
 jpeg('../misc/sup_comp_latent_fac.jpg', width = 1000, height = 300)
 ht <- Heatmap(t(as.matrix(df_plot)), show_row_dend = F, show_column_dend = F,
-              cluster_rows = F, cluster_columns = F,
+              cluster_rows = F, cluster_columns = T,
               heatmap_legend_param = list(title = 'Latent Factor\nMatrix'))
 draw(ht, heatmap_legend_side = "left",annotation_legend_side="right")
 dev.off()
