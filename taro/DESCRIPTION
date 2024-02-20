@@ -13,7 +13,7 @@ Suggests: SparseDOSSA2
 SuggestsNote: BioC (>= 3.0), Recommended: SparseDOSSA2
 License: GPL (>= 3.0)
 LazyData: TRUE
-LinkingTo: Rcpp, RcppArmadillo, RcppParallel
+LinkingTo: Rcpp, RcppArmadillo
 NeedsCompilation: yes
 RoxygenNote: 7.2.3
 Repository: CRAN
